@@ -1,9 +1,14 @@
-# PvP Effects
+# Colored Slots
 
-## Setup
+## Examples
+Screenshots:
 
-For setup instructions, please see the [Fabric Documentation page](https://docs.fabricmc.net/develop/getting-started/creating-a-project#setting-up) related to the IDE that you are using.
+![alt text](https://github.com/danielcanodev/Colored-Slots-Mod/blob/main/.github/images/1.png "Example 1")
 
-## License
+![alt text](https://github.com/danielcanodev/Colored-Slots-Mod/blob/main/.github/images/2.png "Example 2")
 
-This template is available under the CC0 license. Feel free to learn from it and incorporate it in your own projects.
+![alt text](https://github.com/danielcanodev/Colored-Slots-Mod/blob/main/.github/images/3.png "Example 3")
+
+![alt text](https://github.com/danielcanodev/Colored-Slots-Mod/blob/main/.github/images/4.png "Example 4")
+
+![alt text](https://github.com/danielcanodev/Colored-Slots-Mod/blob/main/.github/images/5.png "Example 5")
