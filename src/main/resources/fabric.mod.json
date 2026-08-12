@@ -1,0 +1,38 @@
+{
+	"schemaVersion": 1,
+	"id": "colored_slots",
+	"version": "${version}",
+	"name": "Colored Slots",
+	"description": "This mod allows you to color your survival inventory slots",
+	"authors": [
+		"MasUN0"
+	],
+	"contact": {
+		"homepage": "https://fabricmc.net/",
+		"sources": "https://github.com/FabricMC/fabric-example-mod"
+	},
+	"license": "CC0-1.0",
+	"icon": "assets/pvp-effects/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"net.masuno.ColoredSlots"
+		],
+		"client": [
+			"net.masuno.client.ColoredSlotsClient"
+		]
+	},
+	"mixins": [
+		"colored_slots.mixins.json",
+		{
+			"config": "colored_slots_client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.19.3",
+		"minecraft": "~26.2",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}
