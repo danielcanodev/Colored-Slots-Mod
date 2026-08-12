@@ -6,11 +6,12 @@ public enum SlotColor {
 	NONE(Color.WHITE),
 	GRAY(new Color(45, 45, 45)),
 	RED(new Color(235, 0, 30)),
-	GREEN(new Color(0, 225, 45)),
-	BLUE(new Color(0, 60, 236)),
-	YELLOW(new Color(235, 235, 30)),
-	ORANGE(new Color(235, 90, 15)),
-	PINK(new Color(235, 60, 200));
+	GREEN(new Color(4, 255, 52)),
+	BLUE(new Color(63, 112, 255)),
+	AQUA(new Color(38, 230, 255)),
+	YELLOW(new Color(255, 213, 0)),
+	ORANGE(new Color(255, 115, 0)),
+	PINK(new Color(255, 55, 215));
 
 	private final Color color;
 

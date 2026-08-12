@@ -36,9 +36,9 @@ public class InvConfig {
         public HashMap<String, List<Vector2i>> SLOTS = new HashMap<>();
 
         @SerialEntry
-        public List<Integer> COLORS = new ArrayList<>(Collections.nCopies(37, 0));
+        public List<Integer> COLORS = new ArrayList<>(Collections.nCopies(36, 0));
         @SerialEntry
-        public List<Integer> ICONS = new ArrayList<>(Collections.nCopies(37, 0));
+        public List<Integer> ICONS = new ArrayList<>(Collections.nCopies(36, 0));
 
         public Preset copy() {
             Preset copy = new Preset();

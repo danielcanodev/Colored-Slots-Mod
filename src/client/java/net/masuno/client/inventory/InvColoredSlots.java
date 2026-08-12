@@ -1,7 +1,7 @@
 package net.masuno.client.inventory;
 
 import net.masuno.client.config.InvConfig;
-import net.masuno.client.input.InventoryInput;
+import net.masuno.client.input.InvInput;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.resources.Identifier;
@@ -11,10 +11,11 @@ import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
 
-public class InventoryColoredSlots {
+public class InvColoredSlots {
     public static boolean isEditing = false;
 
     public static final Identifier EDITING = Identifier.withDefaultNamespace("textures/gui/container/editing.png");
+    public static final Identifier CREATIVE_EDITING = Identifier.withDefaultNamespace("textures/gui/container/creative_editing.png");
     public static final Identifier SLOT = Identifier.withDefaultNamespace("textures/gui/container/slot.png");
 
     public static void tickMouseSlot(int index) {
@@ -22,18 +23,18 @@ public class InventoryColoredSlots {
         if (!isHeldEmpty()) return;
         if (!isEditing) return;
 
-        if (InventoryInput.ColorKeyPressed && !InventoryInput.wasHoldingColorKey) {
-            if (InventoryInput.Sneaking) resetSlotColor(index);
+        if (InvInput.ColorKeyPressed && !InvInput.wasHoldingColorKey) {
+            if (InvInput.Sneaking) resetSlotColor(index);
             else swapSlotColor(index);
-            InventoryInput.afterColorKey();
+            InvInput.afterColorKey();
 
             Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
         }
 
-        if (InventoryInput.IconKeyPressed && !InventoryInput.wasHoldingIconKey) {
-            if (InventoryInput.Sneaking) resetSlotIcon(index);
+        if (InvInput.IconKeyPressed && !InvInput.wasHoldingIconKey) {
+            if (InvInput.Sneaking) resetSlotIcon(index);
             else swapSlotIcon(index);
-            InventoryInput.afterIconKey();
+            InvInput.afterIconKey();
 
             Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
         }

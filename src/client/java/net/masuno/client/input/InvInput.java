@@ -4,17 +4,17 @@ import com.mojang.blaze3d.platform.InputConstants;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.masuno.ColoredSlots;
-import net.masuno.client.inventory.InventoryColoredSlots;
+import net.masuno.client.inventory.InvColoredSlots;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.resources.Identifier;
 import net.minecraft.sounds.SoundEvents;
-import net.minecraft.world.level.GameType;
 import org.lwjgl.glfw.GLFW;
 
-public class InventoryInput {
+public class InvInput {
     public static final KeyMapping.Category CATEGORY = KeyMapping.Category.register(
             Identifier.fromNamespaceAndPath(ColoredSlots.MOD_ID, "inventory")
     );
@@ -29,7 +29,7 @@ public class InventoryInput {
 
     public static final KeyMapping TOGGLE_SLOT_EDITING = KeyMappingHelper.registerKeyMapping(
             new KeyMapping(
-                    "key.pvp_effects.toggle",
+                    "key.colored_slots.toggle",
                     InputConstants.Type.KEYSYM,
                     InputConstants.KEY_O,
                     CATEGORY
@@ -46,20 +46,20 @@ public class InventoryInput {
     public static void initialize() {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (client.player == null) return;
-            if (client.player.gameMode() == GameType.CREATIVE) return;
 
-            if (InputConstants.isKeyDown(client.getWindow(), TOGGLE_SLOT_EDITING.getDefaultKey().getValue())) {
-                if (!wasHoldingToggleKey) {
-                    InventoryColoredSlots.isEditing = !InventoryColoredSlots.isEditing;
+            if (client.gui.screen() instanceof InventoryScreen || client.gui.screen() instanceof CreativeModeInventoryScreen) {
+                if (InputConstants.isKeyDown(client.getWindow(), TOGGLE_SLOT_EDITING.getDefaultKey().getValue())) {
+                    if (!wasHoldingToggleKey) {
+                        InvColoredSlots.isEditing = !InvColoredSlots.isEditing;
 
-                    Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
-                    wasHoldingToggleKey = true;
+                        Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
+                        wasHoldingToggleKey = true;
+                    }
+                } else {
+                    wasHoldingToggleKey = false;
                 }
-            } else {
-                wasHoldingToggleKey = false;
-            }
 
-            if (client.gui.screen() instanceof InventoryScreen) {
+
                 long window = client.getWindow().handle();
 
                 Sneaking = (InputConstants.isKeyDown(client.getWindow(), Minecraft.getInstance().options.keyShift.getDefaultKey().getValue()));
