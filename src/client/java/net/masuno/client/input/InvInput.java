@@ -12,6 +12,8 @@ import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.resources.Identifier;
 import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.item.CreativeModeTab;
+import net.minecraft.world.item.CreativeModeTabs;
 import org.lwjgl.glfw.GLFW;
 
 public class InvInput {
@@ -47,7 +49,8 @@ public class InvInput {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (client.player == null) return;
 
-            if (client.gui.screen() instanceof InventoryScreen || client.gui.screen() instanceof CreativeModeInventoryScreen) {
+            if (client.gui.screen() instanceof InventoryScreen ||
+                    (client.gui.screen() instanceof CreativeModeInventoryScreen screen && screen.getSelectedTab() == CreativeModeTabs.tabs().get(12))) {
                 if (InputConstants.isKeyDown(client.getWindow(), TOGGLE_SLOT_EDITING.getDefaultKey().getValue())) {
                     if (!wasHoldingToggleKey) {
                         InvColoredSlots.isEditing = !InvColoredSlots.isEditing;

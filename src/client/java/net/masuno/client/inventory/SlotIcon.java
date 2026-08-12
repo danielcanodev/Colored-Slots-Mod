@@ -7,8 +7,14 @@ public enum SlotIcon {
 	SWORD(Identifier.withDefaultNamespace("textures/gui/container/icon/sword.png")),
 	PICK(Identifier.withDefaultNamespace("textures/gui/container/icon/pick.png")),
 	FOOD(Identifier.withDefaultNamespace("textures/gui/container/icon/food.png")),
-	BLOCK(Identifier.withDefaultNamespace("textures/gui/container/icon/block.png"));
-
+	BLOCK(Identifier.withDefaultNamespace("textures/gui/container/icon/block.png")),
+	MACE(Identifier.withDefaultNamespace("textures/gui/container/icon/mace.png")),
+	SPEAR(Identifier.withDefaultNamespace("textures/gui/container/icon/spear.png")),
+	PEARL(Identifier.withDefaultNamespace("textures/gui/container/icon/pearl.png")),
+	ARROW(Identifier.withDefaultNamespace("textures/gui/container/icon/arrow.png")),
+	FIREWORK(Identifier.withDefaultNamespace("textures/gui/container/icon/firework.png")),
+	ELYTRA(Identifier.withDefaultNamespace("textures/gui/container/icon/elytra.png")),
+	AXE(Identifier.withDefaultNamespace("textures/gui/container/icon/axe.png"));
 	private final Identifier texture;
 
 	SlotIcon(Identifier texture) {
