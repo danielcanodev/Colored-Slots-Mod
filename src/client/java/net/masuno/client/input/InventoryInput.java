@@ -35,31 +35,31 @@ public class InventoryInput {
                     CATEGORY
             ));
 
-    public static void AfterColorKey(){
+    public static void afterColorKey() {
         wasHoldingColorKey = true;
     }
 
-    public static void AfterIconKey(){
+    public static void afterIconKey() {
         wasHoldingIconKey = true;
     }
 
-    public static void Initialize(){
+    public static void initialize() {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (client.player == null) return;
             if (client.player.gameMode() == GameType.CREATIVE) return;
 
-            if (InputConstants.isKeyDown(client.getWindow(), TOGGLE_SLOT_EDITING.getDefaultKey().getValue())){
-                if (!wasHoldingToggleKey){
+            if (InputConstants.isKeyDown(client.getWindow(), TOGGLE_SLOT_EDITING.getDefaultKey().getValue())) {
+                if (!wasHoldingToggleKey) {
                     InventoryColoredSlots.isEditing = !InventoryColoredSlots.isEditing;
 
                     Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
                     wasHoldingToggleKey = true;
                 }
-            }else {
+            } else {
                 wasHoldingToggleKey = false;
             }
 
-            if (client.gui.screen() instanceof InventoryScreen){
+            if (client.gui.screen() instanceof InventoryScreen) {
                 long window = client.getWindow().handle();
 
                 Sneaking = (InputConstants.isKeyDown(client.getWindow(), Minecraft.getInstance().options.keyShift.getDefaultKey().getValue()));

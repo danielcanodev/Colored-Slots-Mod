@@ -8,109 +8,134 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.sounds.SoundEvents;
 
 import java.awt.*;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 
 public class InventoryColoredSlots {
     public static boolean isEditing = false;
-    public static final List<Color> PALETTE = Arrays.asList(
-            Color.WHITE,
-            new Color(45, 45, 45),
-            new Color(235,0,30),
-            new Color(0,225,45),
-            new Color(0,60,236),
-            new Color(235,235,30),
-            new Color(235,90,15),
-            new Color(235,60,200)
-    );
 
     public static final Identifier EDITING = Identifier.withDefaultNamespace("textures/gui/container/editing.png");
     public static final Identifier SLOT = Identifier.withDefaultNamespace("textures/gui/container/slot.png");
 
-    public static final int ICON_COUNT = 5;
-    public static final Identifier EMPTY = Identifier.withDefaultNamespace("textures/gui/container/icon/empty.png");
-    public static final Identifier SWORD = Identifier.withDefaultNamespace("textures/gui/container/icon/sword.png");
-    public static final Identifier PICK = Identifier.withDefaultNamespace("textures/gui/container/icon/pick.png");
-    public static final Identifier FOOD = Identifier.withDefaultNamespace("textures/gui/container/icon/food.png");
-    public static final Identifier BLOCK = Identifier.withDefaultNamespace("textures/gui/container/icon/block.png");
-
-    public static void TickMouseSlot(int index){
+    public static void tickMouseSlot(int index) {
         if (!isSlotEmpty(index)) return;
         if (!isHeldEmpty()) return;
         if (!isEditing) return;
 
-        if (InventoryInput.ColorKeyPressed && !InventoryInput.wasHoldingColorKey){
-            if (InventoryInput.Sneaking) ResetSlotColor(index);
-            else SwapSlotColor(index);
-            InventoryInput.AfterColorKey();
+        if (InventoryInput.ColorKeyPressed && !InventoryInput.wasHoldingColorKey) {
+            if (InventoryInput.Sneaking) resetSlotColor(index);
+            else swapSlotColor(index);
+            InventoryInput.afterColorKey();
 
             Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
         }
 
-        if (InventoryInput.IconKeyPressed && !InventoryInput.wasHoldingIconKey){
-            if (InventoryInput.Sneaking) ResetSlotIcon(index);
-            else SwapSlotIcon(index);
-            InventoryInput.AfterIconKey();
+        if (InventoryInput.IconKeyPressed && !InventoryInput.wasHoldingIconKey) {
+            if (InventoryInput.Sneaking) resetSlotIcon(index);
+            else swapSlotIcon(index);
+            InventoryInput.afterIconKey();
 
             Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
         }
     }
-    public static void SwapSlotIcon(int index){
-        int v = InvConfig.HANDLER.instance().ICONS.get(index);
 
-        v++;
-        if (v >= ICON_COUNT) v -= ICON_COUNT;
-
-        InvConfig.HANDLER.instance().ICONS.set(index,v);
-        InvConfig.HANDLER.save();
-    }
-    public static void SwapSlotColor(int index){
-        int v = InvConfig.HANDLER.instance().COLORS.get(index);
-
-        v++;
-        if (v >= PALETTE.size()) v -= PALETTE.size();
-
-        InvConfig.HANDLER.instance().COLORS.set(index,v);
-        InvConfig.HANDLER.save();
-    }
-    public static void ResetSlotColor(int index){
-        InvConfig.HANDLER.instance().COLORS.set(index,0);
-        InvConfig.HANDLER.save();
-    }
-    public static void ResetSlotIcon(int index){
-        InvConfig.HANDLER.instance().ICONS.set(index,0);
+    public static void swapSlotIcon(int index) {
+        InvConfig.Preset preset = activePreset();
+        preset.ICONS.set(index, SlotIcon.fromValue(preset.ICONS.get(index)).next().ordinal());
         InvConfig.HANDLER.save();
     }
 
-    public static boolean isMouseInSlot(float xm, float ym, int x, int y){
+    public static void swapSlotColor(int index) {
+        InvConfig.Preset preset = activePreset();
+        preset.COLORS.set(index, SlotColor.fromValue(preset.COLORS.get(index)).next().ordinal());
+        InvConfig.HANDLER.save();
+    }
+
+    public static void resetSlotColor(int index) {
+        activePreset().COLORS.set(index, SlotColor.NONE.ordinal());
+        InvConfig.HANDLER.save();
+    }
+
+    public static void resetSlotIcon(int index) {
+        activePreset().ICONS.set(index, SlotIcon.EMPTY.ordinal());
+        InvConfig.HANDLER.save();
+    }
+
+    public static InvConfig.Preset activePreset() {
+        InvConfig config = InvConfig.HANDLER.instance();
+        return config.PRESETS.computeIfAbsent(config.ACTIVE_PRESET, k -> new InvConfig.Preset());
+    }
+
+    public static String activePresetName() {
+        return InvConfig.HANDLER.instance().ACTIVE_PRESET;
+    }
+
+    public static List<String> presetNames() {
+        return new ArrayList<>(InvConfig.HANDLER.instance().PRESETS.keySet());
+    }
+
+    public static void ensureDefaultPreset() {
+        InvConfig config = InvConfig.HANDLER.instance();
+        if (!config.PRESETS.containsKey(config.ACTIVE_PRESET)) {
+            config.PRESETS.put(config.ACTIVE_PRESET, new InvConfig.Preset());
+            InvConfig.HANDLER.save();
+        }
+    }
+
+    public static boolean savePreset(String name) {
+        if (name == null || name.isEmpty()) return false;
+
+        InvConfig config = InvConfig.HANDLER.instance();
+        config.PRESETS.put(name, activePreset().copy());
+        config.ACTIVE_PRESET = name;
+        InvConfig.HANDLER.save();
+        return true;
+    }
+
+    public static boolean setPreset(String name) {
+        InvConfig config = InvConfig.HANDLER.instance();
+        if (!config.PRESETS.containsKey(name)) return false;
+
+        config.ACTIVE_PRESET = name;
+        InvConfig.HANDLER.save();
+        return true;
+    }
+
+    public static boolean deletePreset(String name) {
+        InvConfig config = InvConfig.HANDLER.instance();
+        if (!config.PRESETS.containsKey(name)) return false;
+
+        config.PRESETS.remove(name);
+        if (config.PRESETS.isEmpty()) {
+            config.ACTIVE_PRESET = "default";
+            config.PRESETS.put("default", new InvConfig.Preset());
+        } else if (config.ACTIVE_PRESET.equals(name)) {
+            config.ACTIVE_PRESET = config.PRESETS.keySet().iterator().next();
+        }
+        InvConfig.HANDLER.save();
+        return true;
+    }
+
+    public static boolean isMouseInSlot(float xm, float ym, int x, int y) {
         int s = 18;
         return xm > x && xm < x + s && ym > y && ym < y + s;
     }
 
-    public static boolean isHeldEmpty(){
+    public static boolean isHeldEmpty() {
         if (Minecraft.getInstance().player == null) return true;
         return Minecraft.getInstance().player.containerMenu.getCarried().isEmpty();
     }
 
-    public static boolean isSlotEmpty(int index){
+    public static boolean isSlotEmpty(int index) {
         if (Minecraft.getInstance().player == null) return true;
         return Minecraft.getInstance().player.getInventory().getItem(index).isEmpty();
     }
 
-    public static Identifier GetIcon(int slot) {
-        int value = InvConfig.HANDLER.instance().ICONS.get(slot);
-
-        return switch (value) {
-            case 1 -> SWORD;
-            case 2 -> PICK;
-            case 3 -> FOOD;
-            case 4 -> BLOCK;
-            default -> EMPTY;
-        };
+    public static Identifier getIcon(int slot) {
+        return SlotIcon.fromValue(activePreset().ICONS.get(slot)).texture();
     }
 
-    public static Color GetColor(int slot) {
-        int value = InvConfig.HANDLER.instance().COLORS.get(slot);
-        return PALETTE.get(value);
+    public static Color getColor(int slot) {
+        return SlotColor.fromValue(activePreset().COLORS.get(slot)).color();
     }
 }
