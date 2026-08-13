@@ -1,0 +1,8 @@
+plugins {
+	id 'java'
+	id 'net.minecraftforge.gradle' version '7.0.34'
+	id 'com.modrinth.minotaur'
+}
+
+apply from: rootProject.file('gradle/common.gradle')
+apply from: rootProject.file('gradle/forge.gradle')

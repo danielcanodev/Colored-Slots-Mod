@@ -1,0 +1,26 @@
+modLoader = "javafml"
+loaderVersion = "[0,)"
+license = "CC0-1.0"
+issueTrackerURL = "https://github.com/danielcanodev/Colored-Slots-Mod/issues"
+
+[[mods]]
+modId = "colored_slots"
+version = "${version}"
+displayName = "Colored Slots"
+description = "This mod allows you to color your survival inventory slots and add icons"
+authors = ["MasUN0", "OnlyIvo"]
+mixins = ["colored_slots.mixins.json"]
+
+[[dependencies.colored_slots]]
+modId = "forge"
+mandatory = true
+versionRange = "[52,)"
+ordering = "NONE"
+side = "CLIENT"
+
+[[dependencies.colored_slots]]
+modId = "minecraft"
+mandatory = true
+versionRange = "[1.21.1,1.22)"
+ordering = "NONE"
+side = "CLIENT"

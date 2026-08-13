@@ -1,0 +1,20 @@
+def runDirPath = rootProject.file("run/${versionLabel}/${project.name}")
+
+neoForge {
+    version = project.ext.neoforge_version
+
+    mods {
+        colored_slots {
+            sourceSet sourceSets.main
+        }
+    }
+
+    runs {
+        configureEach {
+            gameDirectory.set(runDirPath)
+            if (name == 'client') {
+                programArguments.addAll('--username', 'MasUN0')
+            }
+        }
+    }
+}

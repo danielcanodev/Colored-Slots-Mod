@@ -1,30 +1,319 @@
-# Automatically build the project and run any configured tests for every push
-# and submitted pull request. This can help catch issues that only occur on
-# certain platforms or Java versions, and provides a first line of defence
-# against bad commits.
+name: Modrinth Release
 
-name: build
-on: [pull_request, push]
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish'
+        required: false
+        default: ''
+      version_type:
+        description: 'Release channel'
+        required: false
+        type: choice
+        default: release
+        options:
+          - release
+          - beta
+          - alpha
+      changelog:
+        description: 'Manual changelog'
+        required: false
+        default: ''
+      base_ref:
+        description: 'Ref (branch/tag/SHA) to diff against'
+        required: false
+        default: ''
+      dry_run:
+        description: 'Build + validate the upload payload but do NOT upload.'
+        required: false
+        type: boolean
+        default: false
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: modrinth-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  MODRINTH_PROJECT_ID: colored-slots
 
 jobs:
-  build:
-    runs-on: ubuntu-24.04
+  detect-changes:
+    name: Detect changed modules
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.compute.outputs.matrix }}
+      count: ${{ steps.compute.outputs.count }}
+      version: ${{ steps.compute.outputs.version }}
+      version_type: ${{ steps.compute.outputs.version_type }}
+      base_ref: ${{ steps.compute.outputs.base_ref }}
     steps:
-      - name: checkout repository
-        uses: actions/checkout@v6
-      - name: validate gradle wrapper
-        uses: gradle/actions/wrapper-validation@v6
-      - name: setup jdk
-        uses: actions/setup-java@v5
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Resolve base ref and compute changed combos
+        id: compute
+        env:
+          BASE_INPUT: ${{ inputs.base_ref }}
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_BEFORE: ${{ github.event.before }}
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+          VERSION_INPUT: ${{ inputs.version }}
+          VERSION_TYPE: ${{ inputs.version_type }}
+        run: |
+          set -euo pipefail
+
+          BASE="$BASE_INPUT"
+          if [[ -z "$BASE" ]]; then
+            if [[ "$EVENT_NAME" == "pull_request" ]]; then
+              BASE="origin/$GITHUB_BASE_REF"
+            elif [[ "$EVENT_NAME" == "push" && -n "$EVENT_BEFORE" && "$EVENT_BEFORE" != "0000000000000000000000000000000000000000" ]]; then
+              BASE="$EVENT_BEFORE"
+            elif [[ "$EVENT_NAME" == "push" ]]; then
+              BASE=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || true)
+              [[ -n "$BASE" ]] || BASE="HEAD~1"
+            else
+              BASE="HEAD~1"
+            fi
+          fi
+
+          git fetch origin "+refs/heads/*:refs/remotes/origin/*" --tags --quiet
+          if ! git rev-parse --verify --quiet "$BASE^{commit}" >/dev/null 2>&1; then
+            git fetch --quiet origin "$BASE" || { echo "::error::Cannot resolve base ref '$BASE'"; exit 1; }
+          fi
+          MERGE_BASE=$(git merge-base "$BASE" HEAD)
+          CHANGED=$(git diff --name-only "$MERGE_BASE" HEAD | sort -u)
+          echo "Base ref: $BASE (merge-base: $MERGE_BASE)"
+          echo "Changed files:"
+          printf '%s\n' "$CHANGED" || true
+
+          VERSION="$VERSION_INPUT"
+          if [[ -z "$VERSION" ]]; then
+            VERSION=$(grep '^mod_version=' gradle.properties | cut -d'=' -f2 | tr -d '[:space:]')
+          fi
+          VTYPE="$VERSION_TYPE"
+          [[ -n "$VTYPE" ]] || VTYPE="release"
+
+          GLOBAL=0
+          while IFS= read -r f; do
+            [[ -z "$f" ]] && continue
+            case "$f" in
+              src/*|gradle/*|build.gradle|settings.gradle|gradle.properties|gradlew|gradlew.bat) GLOBAL=1 ;;
+            esac
+          done <<< "$CHANGED"
+
+          VERSIONS=$(sed -n "s/.*def versions = \[\(.*\)\].*/\1/p" settings.gradle | tr -d "'" | tr ',' ' ')
+          [[ -n "$VERSIONS" ]] || VERSIONS="26.1 26.2 1.21.1 1.21.4 1.21.5 1.21.6"
+          LOADERS=$(sed -n "s/.*def loaders = \[\(.*\)\].*/\1/p" settings.gradle | tr -d "'" | tr ',' ' ')
+          [[ -n "$LOADERS" ]] || LOADERS="fabric neoforge forge"
+
+          COMBOS=()
+          for L in $VERSIONS; do
+            for LOADER in $LOADERS; do
+              [[ -f "versions/$L/$LOADER/build.gradle" ]] || continue
+              CHANGED_ONE=0
+              if [[ "$GLOBAL" == "1" ]]; then
+                CHANGED_ONE=1
+              else
+                while IFS= read -r f; do
+                  [[ -z "$f" ]] && continue
+                  case "$f" in
+                    "versions/$L/$LOADER/"*|"versions/$L/common/"*|"versions/$L/gradle.properties") CHANGED_ONE=1; break ;;
+                  esac
+                done <<< "$CHANGED"
+              fi
+              if [[ "$CHANGED_ONE" == "1" ]]; then
+                MC=$(grep '^minecraft_version=' "versions/$L/gradle.properties" | cut -d'=' -f2 | tr -d '[:space:]')
+                LOADER_NAME="${LOADER^}"
+                COMBOS+=("{\"label\":\"$L\",\"loader\":\"$LOADER\",\"loader_name\":\"$LOADER_NAME\",\"mc_version\":\"$MC\",\"project\":\":versions:$L:$LOADER\",\"path\":\"versions/$L/$LOADER\",\"version_name\":\"$VERSION-$LOADER_NAME-$MC\"}")
+              fi
+            done
+          done
+
+          if (( ${#COMBOS[@]} == 0 )); then
+            MATRIX='[]'
+          else
+            MATRIX=$(printf '%s\n' "${COMBOS[@]}" | jq -Rsc 'split("\n") | map(select(length > 0)) | map(fromjson)' | jq -c .)
+          fi
+
+          echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
+          echo "count=${#COMBOS[@]}" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "version_type=$VTYPE" >> "$GITHUB_OUTPUT"
+          echo "base_ref=$BASE" >> "$GITHUB_OUTPUT"
+          echo "Detected ${#COMBOS[@]} changed combo(s) for version $VERSION ($VTYPE)"
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Change detection"
+            echo ""
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Base ref | \`${{ steps.compute.outputs.base_ref }}\` |"
+            echo "| Version | \`${{ steps.compute.outputs.version }}\` (${{ steps.compute.outputs.version_type }}) |"
+            echo "| Changed combos | ${{ steps.compute.outputs.count }} |"
+            if [[ "${{ steps.compute.outputs.count }}" != "0" ]]; then
+              echo ""
+              echo "Changed:"
+              echo "\`\`\`"
+              echo '${{ steps.compute.outputs.matrix }}' | jq -r '.[] | "  - " + .loader_name + " · " + .label + "  ->  " + .version_name'
+              echo "\`\`\`"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  build-upload:
+    name: "${{ matrix.combo.loader_name }} · ${{ matrix.combo.label }}"
+    needs: detect-changes
+    if: needs.detect-changes.outputs.matrix != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        combo: ${{ fromJSON(needs.detect-changes.outputs.matrix) }}
+    env:
+      VERSION: ${{ needs.detect-changes.outputs.version }}
+      VERSION_TYPE: ${{ needs.detect-changes.outputs.version_type }}
+      BASE: ${{ needs.detect-changes.outputs.base_ref }}
+      LABEL: ${{ matrix.combo.label }}
+      LOADER: ${{ matrix.combo.loader }}
+      LOADER_NAME: ${{ matrix.combo.loader_name }}
+      MC_VERSION: ${{ matrix.combo.mc_version }}
+      VERSION_NAME: ${{ matrix.combo.version_name }}
+      PROJECT: ${{ matrix.combo.project }}
+      MOD_PATH: ${{ matrix.combo.path }}
+      INPUT_CHANGELOG: ${{ inputs.changelog }}
+      MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - uses: actions/setup-java@v5
         with:
           java-version: '25'
           distribution: 'microsoft'
-      - name: make gradle wrapper executable
-        run: chmod +x ./gradlew
-      - name: build
-        run: ./gradlew build
-      - name: capture build artifacts
+
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-home-cache-cleanup: true
+          cache-read-only: ${{ github.event_name == 'pull_request' || inputs.dry_run }}
+
+      - name: Generate changelog
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          CHANGELOG_FILE="$PWD/dist/changelog.md"
+          if [[ -n "$INPUT_CHANGELOG" ]]; then
+            printf '%s' "$INPUT_CHANGELOG" > "$CHANGELOG_FILE"
+          else
+            MB=$(git merge-base "$BASE" HEAD 2>/dev/null || true)
+            if [[ -n "$MB" ]]; then
+              git log --pretty=format:'* %s' "$MB..HEAD" -- \
+                "$MOD_PATH/" \
+                "versions/$LABEL/common/" \
+                "versions/$LABEL/gradle.properties" \
+                src/ gradle/ build.gradle settings.gradle gradle.properties \
+                | sort -u > "$CHANGELOG_FILE" || true
+            fi
+            if [[ ! -s "$CHANGELOG_FILE" ]]; then
+              printf 'No changelog provided.' > "$CHANGELOG_FILE"
+            fi
+          fi
+          echo "Changelog written to $CHANGELOG_FILE"
+
+      - name: Modrinth preflight
+        id: preflight
+        env:
+          PROJECT_ID: ${{ env.MODRINTH_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          API="https://api.modrinth.com/v2"
+          UA="colored-slots-26.2/$VERSION (https://github.com/danielcanodev/colored-slots-26.2) by MasUN0"
+
+          ACTION="upload"
+          REASON=""
+
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            ACTION="build"; REASON="pull request (never uploads)"
+          elif [[ "${{ inputs.dry_run }}" == "true" ]]; then
+            ACTION="validate"; REASON="dry run requested"
+          elif [[ -z "$MODRINTH_TOKEN" ]]; then
+            ACTION="build"; REASON="MODRINTH_TOKEN secret is not set"
+          else
+            EXISTING=$(curl -sS -H "User-Agent: $UA" "$API/project/$PROJECT_ID/version" \
+              | jq -r --arg vn "$VERSION_NAME" '.[] | select(.version_number == $vn) | .id' | head -1)
+            if [[ -n "$EXISTING" ]]; then
+              ACTION="build"; REASON="version $VERSION_NAME already exists on Modrinth (id $EXISTING)"
+            elif ! curl -sS -H "User-Agent: $UA" "$API/tag/game_version" \
+                | jq -e --arg v "$MC_VERSION" 'map(.version) | index($v)' >/dev/null; then
+              ACTION="build"; REASON="game version '$MC_VERSION' is not supported by Modrinth yet"
+            elif ! curl -sS -H "User-Agent: $UA" "$API/tag/loader" \
+                | jq -e --arg l "$LOADER" 'map(.name) | index($l)' >/dev/null; then
+              ACTION="build"; REASON="loader '$LOADER' is not supported by Modrinth"
+            fi
+          fi
+
+          echo "action=$ACTION" >> "$GITHUB_OUTPUT"
+          echo "reason=$REASON" >> "$GITHUB_OUTPUT"
+          echo "preflight action: $ACTION${REASON:+ ($REASON)}"
+
+      - name: Build module
+        if: steps.preflight.outputs.action == 'build'
+        run: |
+          ./gradlew --console=plain --no-daemon -Pmod_version="$VERSION" "$PROJECT:build"
+
+      - name: Build and upload to Modrinth
+        if: steps.preflight.outputs.action == 'upload'
+        env:
+          MODRINTH_CHANGELOG_FILE: dist/changelog.md
+          MODRINTH_VERSION_TYPE: ${{ env.VERSION_TYPE }}
+        run: |
+          ./gradlew --console=plain --no-daemon -Pmod_version="$VERSION" "$PROJECT:modrinth"
+
+      - name: Validate upload payload (dry run)
+        if: steps.preflight.outputs.action == 'validate'
+        env:
+          MODRINTH_CHANGELOG_FILE: dist/changelog.md
+          MODRINTH_VERSION_TYPE: ${{ env.VERSION_TYPE }}
+          MODRINTH_DEBUG: "true"
+        run: |
+          ./gradlew --console=plain --no-daemon -Pmod_version="$VERSION" "$PROJECT:modrinth"
+
+      - name: Upload build artifacts
+        if: steps.preflight.outputs.action == 'build'
         uses: actions/upload-artifact@v7
         with:
-          name: Artifacts
-          path: build/libs/
+          name: ${{ env.LOADER_NAME }}-${{ env.LABEL }}-${{ env.VERSION }}
+          path: ${{ env.MOD_PATH }}/build/libs/*.jar
+          if-no-files-found: error
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## $VERSION_NAME"
+            echo ""
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Loader | $LOADER_NAME |"
+            echo "| Minecraft | $MC_VERSION |"
+            echo "| Action | ${{ steps.preflight.outputs.action || 'built' }} |"
+            if [[ -n "${{ steps.preflight.outputs.reason }}" ]]; then
+              echo "| Reason | ${{ steps.preflight.outputs.reason }} |"
+            fi
+            echo "| Project | https://modrinth.com/mod/$MODRINTH_PROJECT_ID |"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,106 @@
+def versionLabel = project.parent.name
+def versionProps = new Properties()
+def versionPropsFile = rootProject.file("versions/${versionLabel}/gradle.properties")
+versionPropsFile.withInputStream { versionProps.load(it) }
+versionProps.each { key, value -> project.ext.setProperty(key, value) }
+
+project.ext.setProperty('versionLabel', versionLabel)
+
+sourceSets {
+    main {
+        java {
+            srcDir rootProject.file("src/main/java")
+            srcDir rootProject.file("versions/${versionLabel}/common/src/main/java")
+            srcDir "src/main/java"
+        }
+        resources {
+            srcDir rootProject.file("src/main/resources")
+            srcDir rootProject.file("versions/${versionLabel}/common/src/main/resources")
+            srcDir "src/main/resources"
+        }
+    }
+}
+
+java {
+    withSourcesJar()
+}
+
+tasks.named('sourcesJar') {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = Integer.parseInt(project.ext.java_version as String)
+    options.encoding = 'UTF-8'
+}
+
+base {
+    archivesName = "ColoredSlots-${project.version}-${project.name.capitalize()}-${versionLabel}"
+}
+
+tasks.withType(AbstractArchiveTask).configureEach {
+    archiveVersion = ''
+}
+
+def loaderName = project.name
+def uploadVersion = "${project.version}-${loaderName.capitalize()}-${project.ext.minecraft_version}"
+
+modrinth {
+    projectId = 'colored-slots'
+    versionNumber = uploadVersion
+    versionName = uploadVersion
+    versionType = providers.environmentVariable('MODRINTH_VERSION_TYPE').getOrElse('release')
+    changelog = providers.environmentVariable('MODRINTH_CHANGELOG_FILE')
+            .map { rootProject.file(it).text }
+            .getOrElse('No changelog was specified.')
+    uploadFile = providers.provider { tasks.findByName('remapJar') ?: tasks.jar }
+    gameVersions = [project.ext.minecraft_version]
+    loaders = [loaderName]
+    detectLoaders = false
+    debugMode = providers.environmentVariable('MODRINTH_DEBUG').map { it == 'true' }.getOrElse(false)
+    dependencies {
+        switch (loaderName) {
+            case 'fabric':
+                required.project 'fabric-api'
+                break
+            case 'neoforge':
+                required.project 'neoforge'
+                break
+            case 'forge':
+                required.project 'forge'
+                break
+        }
+    }
+}
+
+repositories {
+    mavenCentral()
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = 'Modrinth'
+                url = 'https://api.modrinth.com/maven'
+            }
+        }
+        filter {
+            includeGroup 'maven.modrinth'
+        }
+    }
+}
+
+processResources {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    inputs.property 'version', project.version
+    filesMatching('fabric.mod.json') {
+        expand 'version': project.version
+    }
+    filesMatching('META-INF/*.toml') {
+        expand 'version': project.version
+    }
+}
+
+jar {
+    from(rootProject.file('LICENSE')) {
+        rename { "${it}_${project.name}" }
+    }
+}

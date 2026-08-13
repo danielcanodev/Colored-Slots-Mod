@@ -1,0 +1,25 @@
+def runDirPath = rootProject.file("run/${versionLabel}/${project.name}")
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.ext.minecraft_version}"
+    mappings loom.officialMojangMappings()
+    modImplementation "net.fabricmc:fabric-loader:${project.ext.fabric_loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.ext.fabric_api_version}"
+}
+
+loom {
+    officialMojangMappings()
+
+    mods {
+        colored_slots {
+            sourceSet sourceSets.main
+        }
+    }
+
+    runConfigs.configureEach {
+        runDirectory.set(runDirPath)
+        if (name == 'client') {
+            programArgs('--username', 'MasUN0')
+        }
+    }
+}

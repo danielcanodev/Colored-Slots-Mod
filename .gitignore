@@ -35,6 +35,7 @@ run/
 # java
 
 hs_err_*.log
+*.log
 replay_*.log
 *.hprof
 *.jfr

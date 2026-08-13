@@ -1,0 +1,7 @@
+plugins {
+	id 'net.fabricmc.fabric-loom-remap' version '1.17.19'
+	id 'com.modrinth.minotaur'
+}
+
+apply from: rootProject.file('gradle/common.gradle')
+apply from: rootProject.file('gradle/fabric-121.gradle')

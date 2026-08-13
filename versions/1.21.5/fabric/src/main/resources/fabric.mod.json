@@ -1,0 +1,25 @@
+{
+	"schemaVersion": 1,
+	"id": "colored_slots",
+	"version": "${version}",
+	"name": "Colored Slots",
+	"description": "This mod allows you to color your survival inventory slots and add icons",
+	"authors": ["MasUN0", "OnlyIvo"],
+	"contact": {
+		"homepage": "https://github.com/danielcanodev/Colored-Slots-Mod",
+		"sources": "https://github.com/danielcanodev/Colored-Slots-Mod"
+	},
+	"license": "CC0-1.0",
+	"icon": "assets/colored_slots/icon.png",
+	"environment": "client",
+	"entrypoints": {
+		"client": ["net.masuno.fabric.ColoredSlots"]
+	},
+	"mixins": ["colored_slots.mixins.json"],
+	"depends": {
+		"fabricloader": ">=0.16.0",
+		"minecraft": "~1.21.5",
+		"java": ">=21",
+		"fabric-api": "*"
+	}
+}

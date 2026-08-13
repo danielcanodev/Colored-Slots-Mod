@@ -1,0 +1,30 @@
+def runDirPath = rootProject.file("run/${versionLabel}/${project.name}")
+
+repositories {
+    minecraft.mavenizer(it)
+    maven fg.forgeMaven
+    maven fg.minecraftLibsMaven
+}
+
+dependencies {
+    implementation minecraft.dependency("net.minecraftforge:forge:${project.ext.forge_version}")
+    compileOnly "org.spongepowered:mixin:0.8.7"
+    if (project.ext.find('forge_use_eventbus_validator') == 'true') {
+        annotationProcessor "net.minecraftforge:eventbus-validator:7.0.5"
+    }
+}
+
+minecraft {
+    runs {
+        client {
+            workingDir.set(runDirPath)
+            args('--username', 'MasUN0')
+        }
+        server {
+            workingDir.set(runDirPath)
+        }
+        data {
+            workingDir.set(runDirPath)
+        }
+    }
+}
